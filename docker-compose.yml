@@ -1,0 +1,224 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: netprog_mysql
+    environment:
+      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+      MYSQL_DATABASE: netprog
+      TZ: Asia/Ho_Chi_Minh
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "--silent"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: netprog_phpmyadmin
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      PMA_HOST: mysql
+      PMA_PORT: 3306
+      PMA_USER: root
+      PMA_PASSWORD: ""
+      UPLOAD_LIMIT: 128M
+      TZ: Asia/Ho_Chi_Minh
+    ports:
+      - "8081:80"
+
+  # ✅ Buoi 09: Mail (SMTP) local - xem thư ở http://localhost:8025
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: netprog_mailhog
+    environment:
+      TZ: Asia/Ho_Chi_Minh
+    ports:
+      - "8025:8025"
+    expose:
+      - "1025"
+
+  hub:
+    build:
+      context: ./apps/hub
+      dockerfile: Dockerfile
+    container_name: netprog_hub
+    depends_on:
+      mysql:
+        condition: service_healthy
+      mailhog:
+        condition: service_started
+      grpc:
+        condition: service_started
+      async-echo:
+        condition: service_started
+      mcast-bus:
+        condition: service_started
+
+    env_file:
+      - ./.env
+
+    environment:
+      # HTTP redirect port
+      PORT: 8080
+
+      # REAL TLS
+      USE_HTTPS: "1"
+      HTTPS_PORT: 8443
+      TLS_KEY_PATH: /app/cert/server.key
+      TLS_CERT_PATH: /app/cert/server.crt
+
+      TZ: Asia/Ho_Chi_Minh
+
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASSWORD: ""
+      DB_NAME: netprog
+
+      TCP_HOST: tcp-echo
+      TCP_PORT: 9001
+
+      UDP_HOST: udp-ping
+      UDP_PORT: 9002
+
+      FILE_HOST: file-transfer
+      FILE_PORT: 9003
+
+      TLS_HOST: tls-echo
+      TLS_PORT: 9443
+
+      # ✅ Buoi 05: asyncio echo
+      ASYNC_HOST: async-echo
+      ASYNC_PORT: 9005
+
+      # ✅ Buoi 08: broadcast / multicast bus
+      MCAST_HOST: mcast-bus
+      MCAST_HTTP_PORT: 9011
+      MCAST_GROUP: 239.10.10.10
+      MCAST_PORT: 9010
+      BCAST_PORT: 9012
+
+      # ✅ Buoi 09: Email (SMTP)
+      SMTP_HOST: mailhog
+      SMTP_PORT: 1025
+      MAIL_FROM: chatbox@local
+
+      # ✅ Buoi 10: gRPC service
+      GRPC_HOST: grpc
+      GRPC_PORT: 50051
+
+      JWT_SECRET: secret123
+
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      GEMINI_MODEL: ${GEMINI_MODEL}
+      GEMINI_SYSTEM: ${GEMINI_SYSTEM}
+
+    ports:
+      - "8080:8080"   # http -> redirect
+      - "8443:8443"   # https/wss
+    volumes:
+      - hub_uploads:/app/uploads
+      - ./apps/hub/cert:/app/cert:ro
+
+  tcp-echo:
+    build:
+      context: ./labs/01-tcp-echo
+      dockerfile: Dockerfile
+    container_name: netprog_tcp_echo
+    environment:
+      TZ: Asia/Ho_Chi_Minh
+    expose:
+      - "9001"
+
+  udp-ping:
+    build:
+      context: ./labs/02-udp-ping
+      dockerfile: Dockerfile
+    container_name: netprog_udp_ping
+    environment:
+      TZ: Asia/Ho_Chi_Minh
+    expose:
+      - "9002/udp"
+
+  file-transfer:
+    build:
+      context: ./labs/03-file-transfer
+      dockerfile: Dockerfile
+    container_name: netprog_file_transfer
+    environment:
+      TZ: Asia/Ho_Chi_Minh
+    volumes:
+      - lab_files:/app/received
+    expose:
+      - "9003"
+
+  tls-echo:
+    build:
+      context: ./labs/07-tls
+      dockerfile: Dockerfile
+    container_name: netprog_tls_echo
+    environment:
+      TZ: Asia/Ho_Chi_Minh
+    expose:
+      - "9443"
+
+  # ✅ Buoi 05: Async echo server (asyncio)
+  async-echo:
+    build:
+      context: ./labs/05-async-echo
+      dockerfile: Dockerfile
+    container_name: netprog_async_echo
+    environment:
+      TZ: Asia/Ho_Chi_Minh
+    expose:
+      - "9005"
+
+  # ✅ Buoi 08: Broadcast & Multicast Bus
+  mcast-bus:
+    build:
+      context: ./labs/08-mcast-bus
+      dockerfile: Dockerfile
+    container_name: netprog_mcast_bus
+    environment:
+      TZ: Asia/Ho_Chi_Minh
+      MCAST_GROUP: 239.10.10.10
+      MCAST_PORT: 9010
+      BCAST_PORT: 9012
+      HTTP_PORT: 9011
+    ports:
+      - "9011:9011"  # optional: xem feed
+    expose:
+      - "9010/udp"
+      - "9012/udp"
+
+  # ✅ Buoi 10: gRPC Microservice (đọc stats từ DB)
+  grpc:
+    build:
+      context: ./apps/grpc-service
+      dockerfile: Dockerfile
+    container_name: netprog_grpc
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      TZ: Asia/Ho_Chi_Minh
+      GRPC_PORT: 50051
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASSWORD: ""
+      DB_NAME: netprog
+    expose:
+      - "50051"
+
+volumes:
+  mysql_data:
+  hub_uploads:
+  lab_files:
