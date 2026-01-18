@@ -1140,3 +1140,5 @@ start().catch((e) => {
   console.error('❌ Start error:', e);
   process.exit(1);
 });
+
+1 2 ba con cá chà bá lửa
