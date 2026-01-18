@@ -133,3 +133,57 @@ export async function geminiGenerate({
 
   throw lastErr || new Error("All Gemini models failed");
 }
+/**
+ * Helper: Đợi một khoảng thời gian
+ */
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+/**
+ * Hàm mở rộng: Tự động thử lại (Retry) nếu gặp lỗi 429 hoặc lỗi mạng
+ * Không làm ảnh hưởng đến hàm geminiGenerate cũ.
+ */
+export async function geminiGenerateWithRetry(options) {
+  const {
+    maxRetries = 3,       // Số lần thử lại tối đa
+    initialDelay = 2000,  // Thời gian chờ ban đầu (2 giây)
+    ...rest               // Các tham số khác của geminiGenerate
+  } = options;
+
+  let lastError = null;
+
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      // Gọi chính hàm geminiGenerate của bạn đã viết phía trên
+      return await geminiGenerate(rest);
+    } catch (err) {
+      lastError = err;
+
+      // Chỉ retry nếu là lỗi Rate Limit (429) hoặc lỗi server tạm thời (503)
+      const shouldRetry = err.status === 429 || err.status === 503 || !err.status;
+      
+      if (shouldRetry && attempt < maxRetries - 1) {
+        const waitTime = initialDelay * Math.pow(2, attempt); // Exponential backoff
+        console.warn(`[Gemini] Thử lại lần ${attempt + 1}/${maxRetries} sau ${waitTime}ms...`);
+        await delay(waitTime);
+        continue;
+      }
+
+      // Nếu là lỗi nghiêm trọng (Auth, Prompt sai...) thì ném lỗi luôn
+      throw err;
+    }
+  }
+
+  throw lastError;
+}
+
+/**
+ * Một phiên bản rút gọn để gọi nhanh trong các task đơn giản
+ */
+export const askGemini = (prompt, apiKey, model = "gemini-1.5-flash") => {
+  return geminiGenerateWithRetry({
+    prompt,
+    apiKey,
+    model,
+    temperature: 0.7
+  });
+};
