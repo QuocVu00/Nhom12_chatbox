@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>NetProg WebSocket Chat (ws)</title>
+</head>
+<body>
+  <h3>WebSocket Chat</h3>
+
+  <div>
+    <button id="btnConnect">Connect</button>
+    <span id="status">DISCONNECTED</span>
+  </div>
+
+  <hr />
+
+  <div>
+    <input id="name" placeholder="username" />
+    <button id="btnSetName">Set Name</button>
+  </div>
+
+  <div style="margin-top:8px">
+    <input id="room" placeholder="room (vd: lop12)" />
+    <button id="btnJoin">Join</button>
+  </div>
+
+  <div style="margin-top:8px">
+    <input id="msg" placeholder="message..." style="width:320px" />
+    <button id="btnSend">Send</button>
+  </div>
+
+  <pre id="log" style="background:#111;color:#0f0;padding:10px;height:320px;overflow:auto"></pre>
+
+  <script>
+    let ws = null;
+
+    const statusEl = document.getElementById("status");
+    const logEl = document.getElementById("log");
+    const log = (x) => (logEl.textContent += x + "\n");
+
+    function setStatus(s) { statusEl.textContent = s; }
+
+    function send(obj) {
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        log("❌ Not connected");
+        return;
+      }
+      ws.send(JSON.stringify(obj));
+    }
+
+    document.getElementById("btnConnect").onclick = () => {
+      if (ws && ws.readyState === WebSocket.OPEN) return;
+
+      ws = new WebSocket(`ws://${location.host}`);
+      setStatus("CONNECTING...");
+
+      ws.onopen = () => {
+        setStatus("CONNECTED");
+        log("✅ connected");
+      };
+      ws.onclose = () => {
+        setStatus("DISCONNECTED");
+        log("🔌 disconnected");
+      };
+      ws.onerror = () => log("❌ ws error");
+      ws.onmessage = (ev) => {
+        try {
+          const msg = JSON.parse(ev.data);
+          if (msg.type === "chat") {
+            log(`[${msg.room}] ${msg.sender}: ${msg.content}`);
+          } else if (msg.type === "system") {
+            log(`[SYSTEM] ${msg.message}`);
+          } else if (msg.type === "error") {
+            log(`[ERROR] ${msg.message}`);
+          } else {
+            log(ev.data);
+          }
+        } catch {
+          log(ev.data);
+        }
+      };
+    };
+
+    document.getElementById("btnSetName").onclick = () => {
+      const username = document.getElementById("name").value.trim();
+      send({ type: "set_name", username });
+    };
+
+    document.getElementById("btnJoin").onclick = () => {
+      const room = document.getElementById("room").value.trim();
+      send({ type: "join", room });
+    };
+
+    document.getElementById("btnSend").onclick = () => {
+      const content = document.getElementById("msg").value;
+      send({ type: "chat", content });
+      document.getElementById("msg").value = "";
+    };
+  </script>
+</body>
+</html>
