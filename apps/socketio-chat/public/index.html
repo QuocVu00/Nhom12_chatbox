@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>NetProg Socket.IO Chat</title>
+</head>
+<body>
+  <h3>Socket.IO Chat + MySQL (Docker)</h3>
+
+  <div>
+    <input id="u" placeholder="username" />
+    <input id="p" placeholder="password" type="password" />
+    <button id="btnRegister">Register</button>
+    <button id="btnLogin">Login</button>
+  </div>
+
+  <hr/>
+
+  <div>
+    <input id="room" placeholder="room (vd: lop12)" />
+    <button id="btnJoin">Join</button>
+  </div>
+
+  <div style="margin-top:10px">
+    <input id="msg" placeholder="message..." style="width:300px" />
+    <button id="btnSend">Send</button>
+  </div>
+
+  <pre id="log" style="background:#111;color:#0f0;padding:10px;height:300px;overflow:auto"></pre>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="./main.js"></script>
+</body>
+</html>
