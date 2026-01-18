@@ -120,5 +120,3 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         print("\nCancelled.")
         sys.exit(130)
-
-1 2 ba con cá chà bá lửa
