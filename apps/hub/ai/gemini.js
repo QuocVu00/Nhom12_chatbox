@@ -1,5 +1,5 @@
 // Gemini REST helper (Node 18+ has global fetch).
-// Auto fallback models when current model is not found / not supported.
+// ✅ Auto fallback models when current model is not found / not supported.
 
 function isFallbackWorthy(respStatus, data, msg) {
   const s = respStatus;
@@ -9,9 +9,7 @@ function isFallbackWorthy(respStatus, data, msg) {
   // Model lỗi / không hỗ trợ generateContent
   if (s === 404) return true;
   if (s === 400 && (m.includes("not found") || m.includes("not supported") || m.includes("supported methods"))) return true;
-  if (m.includes("call listmodels")) return true;
-  if (d.includes("call listmodels")) return true;
-  if (m.includes("is not found for api version")) return true;
+  if (m.includes("call listmodels") || d.includes("call listmodels") || m.includes("is not found for api version")) return true;
 
   // tạm thời/unavailable/quota -> cũng fallback thử
   if (s === 429 || s === 503) return true;
@@ -20,18 +18,11 @@ function isFallbackWorthy(respStatus, data, msg) {
 }
 
 function extractText(data) {
-  const text =
-    data?.candidates?.[0]?.content?.parts
-      ?.map((x) => x?.text || "")
-      .join("")
-      .trim() || "";
-  return text;
+  return data?.candidates?.[0]?.content?.parts?.map((x) => x?.text || "").join("").trim() || "";
 }
 
 async function callGenerateContent({ apiKey, model, system, prompt, maxOutputTokens, temperature }) {
-  const url =
-    `https://generativelanguage.googleapis.com/v1beta/models/` +
-    `${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
 
   const body = {
     contents: [{ role: "user", parts: [{ text: prompt }] }],
@@ -56,11 +47,7 @@ async function callGenerateContent({ apiKey, model, system, prompt, maxOutputTok
   }
 
   if (!resp.ok) {
-    const msg =
-      data?.error?.message ||
-      data?.message ||
-      rawText ||
-      `Gemini HTTP ${resp.status}`;
+    const msg = data?.error?.message || data?.message || rawText || `Gemini HTTP ${resp.status}`;
     const err = new Error(msg);
     err.status = resp.status;
     err.data = data;
@@ -92,74 +79,70 @@ export async function geminiGenerate({
   const p = String(prompt || "").trim();
   if (!p) throw new Error("Empty prompt");
 
-  // Danh sách model thử lần lượt
-  // Lưu ý: v1beta + generateContent thường ổn định nhất với gemini-1.0-pro / gemini-pro
   const primary = String(model || "").trim();
-  const fallbackModels = [
-    primary,                 // model từ env / tham số
-    "gemini-1.0-pro",
-    "gemini-pro",
-  ].filter(Boolean);
+  const fallbackModels = [primary, "gemini-1.0-pro", "gemini-pro"].filter(Boolean);
 
   let lastErr = null;
 
   for (const m of fallbackModels) {
-    const result = await callGenerateContent({
-      apiKey: key,
-      model: m,
-      system,
-      prompt: p,
-      maxOutputTokens,
-      temperature,
-    });
+    const result = await callGenerateContent({ apiKey: key, model: m, system, prompt: p, maxOutputTokens, temperature });
 
-    if (result.ok) {
-      // Trả text như trước (không đổi API)
-      return result.text;
-    }
+    if (result.ok) return result.text;
 
     lastErr = result.err;
-
-    const status = lastErr?.status;
-    const data = lastErr?.data;
-    const msg = lastErr?.message || "";
-
-    // Nếu lỗi đáng fallback -> thử model kế tiếp
-    if (isFallbackWorthy(status, data, msg)) continue;
-
-    // Lỗi không nên fallback (ví dụ API key sai, permission…) ->xoá luôn
+    if (isFallbackWorthy(lastErr?.status, lastErr?.data, lastErr?.message)) continue;
     throw lastErr;
   }
-
   throw lastErr || new Error("All Gemini models failed");
 }
+
+/**
+ * Helper: Đợi một khoảng thời gian
+ */
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+/**
+ * Hàm mở rộng: Tự động thử lại (Retry)
+ */
+export async function geminiGenerateWithRetry(options) {
+  const { maxRetries = 3, initialDelay = 2000, ...rest } = options;
+  let lastError = null;
+
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      return await geminiGenerate(rest);
+    } catch (err) {
+      lastError = err;
+      const shouldRetry = err.status === 429 || err.status === 503 || !err.status;
+      if (shouldRetry && attempt < maxRetries - 1) {
+        const waitTime = initialDelay * Math.pow(2, attempt);
+        console.warn(`[Gemini] Thử lại lần ${attempt + 1}/${maxRetries} sau ${waitTime}ms...`);
+        await delay(waitTime);
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw lastError;
+}
+
 /**
  * Tiện ích dọn dẹp nội dung văn bản
  */
 export const geminiCleanText = (text) => {
   if (!text) return "";
-  return text
-    .replace(/```json/g, "") // Xóa tag code json
-    .replace(/```/g, "")     // Xóa tag code chung
-    .trim();
+  return text.replace(/```json/g, "").replace(/```/g, "").trim();
 };
 
 /**
- * Hàm chuyên dụng để lấy dữ liệu JSON sạch
- * Giúp các file khác không cần parse thủ công
+ * Hàm chuyên dụng lấy dữ liệu JSON sạch
  */
 export async function geminiGenerateJSON(options) {
   const { prompt, ...rest } = options;
-  
-  // Thêm chỉ dẫn ép kiểu JSON vào prompt
   const jsonPrompt = `${prompt}\n\nIMPORTANT: Return ONLY a valid JSON object. No preamble, no markdown blocks.`;
   
   try {
-    const rawText = await geminiGenerateWithRetry({
-      ...rest,
-      prompt: jsonPrompt,
-    });
-
+    const rawText = await geminiGenerateWithRetry({ ...rest, prompt: jsonPrompt });
     const cleaned = geminiCleanText(rawText);
     return JSON.parse(cleaned);
   } catch (err) {
@@ -170,7 +153,6 @@ export async function geminiGenerateJSON(options) {
 
 /**
  * Wrapper hỗ trợ Timeout 
- * Đảm bảo hàm không chạy quá X giây
  */
 export async function geminiWithTimeout(options, ms = 30000) {
   return Promise.race([
@@ -182,8 +164,12 @@ export async function geminiWithTimeout(options, ms = 30000) {
 }
 
 /**
- * Object tập hợp các cấu hình model phổ biến để gọi cho nhanh
+ * Một phiên bản rút gọn để gọi nhanh
  */
+export const askGemini = (prompt, apiKey, model = "gemini-1.5-flash") => {
+  return geminiGenerateWithRetry({ prompt, apiKey, model, temperature: 0.7 });
+};
+
 export const GEMINI_MODELS = {
   FLASH: "gemini-1.5-flash",
   PRO: "gemini-1.5-pro",
