@@ -3,31 +3,43 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>NetProg Socket.IO Chat</title>
+  <title>Nhom 12 - Socket.IO Chat & Gemini AI</title>
+  <link rel="stylesheet" href="/app.css" />
+  <style>
+    /* Thêm một chút style nhanh để dễ nhìn */
+    body { font-family: sans-serif; padding: 20px; background-color: #f4f4f9; }
+    #log { background: #1e1e1e; color: #d4d4d4; padding: 15px; height: 350px; overflow-y: auto; border-radius: 8px; font-family: 'Courier New', Courier, monospace; }
+    .controls { margin-bottom: 15px; padding: 10px; background: white; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+    input { padding: 8px; border: 1px solid #ccc; border-radius: 4px; margin-right: 5px; }
+    button { padding: 8px 15px; border: none; border-radius: 4px; background: #007bff; color: white; cursor: pointer; }
+    button:hover { background: #0056b3; }
+  </style>
 </head>
 <body>
-  <h3>Socket.IO Chat + MySQL (Docker)</h3>
+  <h3>🚀 Nhom 12: Socket.IO Chat + MySQL + Gemini AI</h3>
 
-  <div>
+  <div class="controls">
+    <strong>Tài khoản:</strong>
     <input id="u" placeholder="username" />
     <input id="p" placeholder="password" type="password" />
-    <button id="btnRegister">Register</button>
-    <button id="btnLogin">Login</button>
+    <button id="btnRegister">Đăng ký</button>
+    <button id="btnLogin">Đăng nhập</button>
   </div>
 
-  <hr/>
-
-  <div>
-    <input id="room" placeholder="room (vd: lop12)" />
-    <button id="btnJoin">Join</button>
+  <div class="controls">
+    <strong>Phòng:</strong>
+    <input id="room" placeholder="Tên phòng (vd: lop12)" />
+    <button id="btnJoin">Vào phòng</button>
   </div>
 
-  <div style="margin-top:10px">
-    <input id="msg" placeholder="message..." style="width:300px" />
-    <button id="btnSend">Send</button>
+  <div class="controls">
+    <input id="msg" placeholder="Nhập tin nhắn..." style="width: 60%;" />
+    <button id="btnSend">Gửi tin nhắn</button>
+    <button id="btnAskAI" style="background: #28a745;">Hỏi Gemini AI</button>
   </div>
 
-  <pre id="log" style="background:#111;color:#0f0;padding:10px;height:300px;overflow:auto"></pre>
+  <div id="status" style="margin-bottom: 5px; font-size: 0.9em; color: #666;">Chưa kết nối...</div>
+  <pre id="log"></pre>
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="./main.js"></script>
