@@ -1141,4 +1141,3 @@ start().catch((e) => {
   process.exit(1);
 });
 
-// thật ra là em làm hết tất cả bài đó thầy ạ\\

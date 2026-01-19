@@ -89,5 +89,3 @@ app.delete("/items/:id", auth, (req, res) => {
 app.listen(PORT, () => {
   console.log(`✅ HTTP API running: http://localhost:${PORT}`);
 });
-
-// thật ra là em làm hết tất cả bài đó thầy ạ\\
