@@ -1,5 +1,5 @@
 // Gemini REST helper (Node 18+ has global fetch).
-// ✅ Auto fallback models when current model is not found / not supported.
+// Auto fallback models when current model is not found / not supported.
 
 function isFallbackWorthy(respStatus, data, msg) {
   const s = respStatus;
@@ -92,7 +92,7 @@ export async function geminiGenerate({
   const p = String(prompt || "").trim();
   if (!p) throw new Error("Empty prompt");
 
-  // ✅ Danh sách model thử lần lượt
+  // Danh sách model thử lần lượt
   // Lưu ý: v1beta + generateContent thường ổn định nhất với gemini-1.0-pro / gemini-pro
   const primary = String(model || "").trim();
   const fallbackModels = [
@@ -114,7 +114,7 @@ export async function geminiGenerate({
     });
 
     if (result.ok) {
-      // ✅ Trả text như trước (không đổi API)
+      // Trả text như trước (không đổi API)
       return result.text;
     }
 
@@ -124,12 +124,68 @@ export async function geminiGenerate({
     const data = lastErr?.data;
     const msg = lastErr?.message || "";
 
-    // ✅ Nếu lỗi đáng fallback -> thử model kế tiếp
+    // Nếu lỗi đáng fallback -> thử model kế tiếp
     if (isFallbackWorthy(status, data, msg)) continue;
 
-    // ❌ Lỗi không nên fallback (ví dụ API key sai, permission…) -> ném luôn
+    // Lỗi không nên fallback (ví dụ API key sai, permission…) ->xoá luôn
     throw lastErr;
   }
 
   throw lastErr || new Error("All Gemini models failed");
 }
+/**
+ * Tiện ích dọn dẹp nội dung văn bản
+ */
+export const geminiCleanText = (text) => {
+  if (!text) return "";
+  return text
+    .replace(/```json/g, "") // Xóa tag code json
+    .replace(/```/g, "")     // Xóa tag code chung
+    .trim();
+};
+
+/**
+ * Hàm chuyên dụng để lấy dữ liệu JSON sạch
+ * Giúp các file khác không cần parse thủ công
+ */
+export async function geminiGenerateJSON(options) {
+  const { prompt, ...rest } = options;
+  
+  // Thêm chỉ dẫn ép kiểu JSON vào prompt
+  const jsonPrompt = `${prompt}\n\nIMPORTANT: Return ONLY a valid JSON object. No preamble, no markdown blocks.`;
+  
+  try {
+    const rawText = await geminiGenerateWithRetry({
+      ...rest,
+      prompt: jsonPrompt,
+    });
+
+    const cleaned = geminiCleanText(rawText);
+    return JSON.parse(cleaned);
+  } catch (err) {
+    console.error("[Gemini JSON Error]:", err.message);
+    throw new Error("Failed to parse Gemini response as JSON");
+  }
+}
+
+/**
+ * Wrapper hỗ trợ Timeout 
+ * Đảm bảo hàm không chạy quá X giây
+ */
+export async function geminiWithTimeout(options, ms = 30000) {
+  return Promise.race([
+    geminiGenerateWithRetry(options),
+    new Promise((_, reject) => 
+      setTimeout(() => reject(new Error(`Gemini request timeout after ${ms}ms`)), ms)
+    )
+  ]);
+}
+
+/**
+ * Object tập hợp các cấu hình model phổ biến để gọi cho nhanh
+ */
+export const GEMINI_MODELS = {
+  FLASH: "gemini-1.5-flash",
+  PRO: "gemini-1.5-pro",
+  PRO_10: "gemini-1.0-pro"
+};
