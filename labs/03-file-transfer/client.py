@@ -7,7 +7,7 @@ from pathlib import Path
 SERVER_HOST = "127.0.0.1"
 SERVER_PORT = 9003
 
-BUFFER_SIZE = 64 * 1024  # 64KB
+BUFFER_SIZE = 64 * 1024  
 
 def recv_line(sock: socket.socket) -> str:
     data = b""

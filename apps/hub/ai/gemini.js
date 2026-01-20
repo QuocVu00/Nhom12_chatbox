@@ -1,17 +1,12 @@
-// Gemini REST helper (Node 18+ has global fetch).
-// ✅ Auto fallback models when current model is not found / not supported.
-
 function isFallbackWorthy(respStatus, data, msg) {
   const s = respStatus;
   const m = String(msg || "").toLowerCase();
   const d = data ? JSON.stringify(data).toLowerCase() : "";
 
-  // Model lỗi / không hỗ trợ generateContent
   if (s === 404) return true;
   if (s === 400 && (m.includes("not found") || m.includes("not supported") || m.includes("supported methods"))) return true;
   if (m.includes("call listmodels") || d.includes("call listmodels") || m.includes("is not found for api version")) return true;
 
-  // tạm thời/unavailable/quota -> cũng fallback thử
   if (s === 429 || s === 503) return true;
 
   return false;
@@ -96,14 +91,8 @@ export async function geminiGenerate({
   throw lastErr || new Error("All Gemini models failed");
 }
 
-/**
- * Helper: Đợi một khoảng thời gian
- */
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-/**
- * Hàm mở rộng: Tự động thử lại (Retry)
- */
 export async function geminiGenerateWithRetry(options) {
   const { maxRetries = 3, initialDelay = 2000, ...rest } = options;
   let lastError = null;
@@ -126,17 +115,11 @@ export async function geminiGenerateWithRetry(options) {
   throw lastError;
 }
 
-/**
- * Tiện ích dọn dẹp nội dung văn bản
- */
 export const geminiCleanText = (text) => {
   if (!text) return "";
   return text.replace(/```json/g, "").replace(/```/g, "").trim();
 };
 
-/**
- * Hàm chuyên dụng lấy dữ liệu JSON sạch
- */
 export async function geminiGenerateJSON(options) {
   const { prompt, ...rest } = options;
   const jsonPrompt = `${prompt}\n\nIMPORTANT: Return ONLY a valid JSON object. No preamble, no markdown blocks.`;
@@ -151,9 +134,6 @@ export async function geminiGenerateJSON(options) {
   }
 }
 
-/**
- * Wrapper hỗ trợ Timeout 
- */
 export async function geminiWithTimeout(options, ms = 30000) {
   return Promise.race([
     geminiGenerateWithRetry(options),
@@ -163,9 +143,6 @@ export async function geminiWithTimeout(options, ms = 30000) {
   ]);
 }
 
-/**
- * Một phiên bản rút gọn để gọi nhanh
- */
 export const askGemini = (prompt, apiKey, model = "gemini-1.5-flash") => {
   return geminiGenerateWithRetry({ prompt, apiKey, model, temperature: 0.7 });
 };

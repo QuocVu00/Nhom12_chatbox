@@ -35,7 +35,6 @@ function verifyToken(token) {
   return jwt.verify(token, JWT_SECRET);
 }
 
-// ---------- HTTP API ----------
 app.post("/api/register", async (req, res) => {
   try {
     const { username, password } = req.body || {};
@@ -73,7 +72,6 @@ app.post("/api/login", async (req, res) => {
   }
 });
 
-// ---------- Socket Auth ----------
 io.use((socket, next) => {
   try {
     const token = socket.handshake.auth?.token;
@@ -86,7 +84,6 @@ io.use((socket, next) => {
   }
 });
 
-// ---------- Socket Events ----------
 io.on("connection", (socket) => {
   const username = socket.user.username;
 

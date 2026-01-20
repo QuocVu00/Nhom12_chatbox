@@ -11,7 +11,7 @@ BASE_DIR = Path(__file__).resolve().parent
 UPLOAD_DIR = BASE_DIR / "uploads"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
-BUFFER_SIZE = 64 * 1024  # 64KB
+BUFFER_SIZE = 64 * 1024  
 
 def recv_line(conn: socket.socket) -> str:
     """Read until '\n'."""
