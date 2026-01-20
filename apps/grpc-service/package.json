@@ -1,6 +1,7 @@
 {
   "name": "chatbox-grpc-service",
   "version": "1.0.0",
+  "description": "gRPC service cho chatbox, kết nối MySQL",
   "type": "module",
   "private": true,
   "main": "server.js",
