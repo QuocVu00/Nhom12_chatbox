@@ -33,7 +33,7 @@ services:
     ports:
       - "8081:80"
 
-  # ✅ Buoi 09: Mail (SMTP) local - xem thư ở http://localhost:8025
+  # ✅ Buoi 09: Mail (SMTP) local
   mailhog:
     image: mailhog/mailhog:latest
     container_name: netprog_mailhog
@@ -193,13 +193,12 @@ services:
       BCAST_PORT: 9012
       HTTP_PORT: 9011
     ports:
-      - "9011:9011"  # optional: xem feed
+      - "9011:9011"  # optional HTTP server for monitoring
     expose:
       - "9010/udp"
       - "9012/udp"
 
-  # ✅ Buoi 10: gRPC Microservice (đọc stats từ DB)
-  grpc:
+  # ✅ Buoi 10: gRPC Microservice for NetProg Chatbox
     build:
       context: ./apps/grpc-service
       dockerfile: Dockerfile

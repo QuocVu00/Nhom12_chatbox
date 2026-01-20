@@ -9,7 +9,7 @@ const __dirname = path.dirname(__filename);
 
 const PORT = Number(process.env.GRPC_PORT || 50051);
 
-// DB env (same as hub)
+// DB env 
 const DB_HOST = process.env.DB_HOST || 'mysql';
 const DB_PORT = Number(process.env.DB_PORT || 3306);
 const DB_USER = process.env.DB_USER || 'root';

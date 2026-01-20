@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS users (
   UNIQUE KEY uk_users_email (email)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Rooms có dm_key để chống tạo DM trùng
+-- Rooms có dm_key để chống tạo DM trùng lặp
 CREATE TABLE IF NOT EXISTS rooms (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   type ENUM('dm','group') NOT NULL DEFAULT 'dm',

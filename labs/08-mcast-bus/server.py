@@ -46,7 +46,7 @@ def add_event(kind: str, message: str, addr=None):
 
 
 def listen_multicast():
-    # Reference: join IPv4 multicast group
+    # Reference
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
