@@ -602,7 +602,7 @@ body[data-theme="dark"] .file-card{ background: rgba(0,0,0,0.18); }
   border: 1px solid var(--border);
   background: rgba(255,255,255,0.35);
 }
-body[data-theme="dark"] .file-dl{ background: rgba(0, 0, 0, 0.22); }
+body[data-theme="dark"] .file-dl{ background: rgba(0,0,0,0.22); }
 
 .img-wrap{ display:block; }
 .img-wrap img{
