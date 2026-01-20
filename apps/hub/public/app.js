@@ -485,6 +485,37 @@ function renderAI() {
     msgInput.focus();
   });
 
+  // ---- Typing indicator (client) ----
+  let typingTimeout = null;
+  let isTyping = false;
+
+  function notifyTyping() {
+    if (!socket || !selectedRoom) return;
+    if (!isTyping) {
+      isTyping = true;
+      socket.emit("typing", { roomId: selectedRoom.id, typing: true });
+    }
+    if (typingTimeout) clearTimeout(typingTimeout);
+    typingTimeout = setTimeout(() => {
+      if (!socket || !selectedRoom) return;
+      socket.emit("typing", { roomId: selectedRoom.id, typing: false });
+      isTyping = false;
+    }, 1500);
+  }
+
+  msgInput.addEventListener("input", () => {
+    const text = msgInput.value || "";
+    if (!text.trim()) {
+      if (isTyping && socket && selectedRoom) {
+        socket.emit("typing", { roomId: selectedRoom.id, typing: false });
+      }
+      isTyping = false;
+      if (typingTimeout) clearTimeout(typingTimeout);
+      return;
+    }
+    notifyTyping();
+  });
+
   function scrollBottom() {
     const area = $("#chatArea", node);
     area.scrollTop = area.scrollHeight;
@@ -566,6 +597,9 @@ let pendingFile = null;
 // ✅ Presence set (online/offline)
 let onlineSet = new Set();
 
+// typing state cho từng phòng: roomId -> Set(username)
+let roomTyping = new Map();
+
 // ✅ FIX: dedupe message để chống double khi vừa POST vừa socket emit
 function addMessageOnce(msg) {
   const m = normalizeMessage(msg);
@@ -638,9 +672,13 @@ function renderChat() {
           </div>
         </div>
 
+        <div class="conn-status" id="connStatus"></div>
+
         <div class="chat-area" id="chatArea">
           <div class="empty-hint">Chọn một người hoặc nhóm để bắt đầu</div>
         </div>
+
+        <div class="typing-indicator" id="typingIndicator"></div>
 
         <div class="composer" style="position:relative">
           <button class="round-btn" id="btnEmoji" title="Emoji" type="button">😄</button>
@@ -812,6 +850,13 @@ function renderChat() {
 
     msgInput.value = "";
 
+    // kết thúc trạng thái đang nhập khi gửi
+    if (isTyping && socket && selectedRoom) {
+      socket.emit("typing", { roomId: selectedRoom.id, typing: false });
+    }
+    isTyping = false;
+    if (typingTimeout) clearTimeout(typingTimeout);
+
     const data = await api("/api/messages", {
       method: "POST",
       body: JSON.stringify({ roomId: selectedRoom.id, content }),
@@ -863,18 +908,87 @@ function renderChat() {
 
   $("#send", node).onclick = sendMessage;
   msgInput.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") sendMessage();
+    if (e.key === "Enter") {
+      sendMessage();
+    }
   });
 
   $("#search", node).addEventListener("input", () => renderList());
 
+  // luôn đóng socket cũ (nếu còn) để tránh nhân đôi listener khi render lại /chat
+  if (window.currentChatSocket) {
+    try { window.currentChatSocket.disconnect(); } catch {}
+  }
+
   const socket = io({
     auth: { token: getToken() },
+    reconnection: true,
+    reconnectionAttempts: Infinity,
+    reconnectionDelay: 500,
+    reconnectionDelayMax: 5000,
   });
+  window.currentChatSocket = socket;
+
+  const connStatusEl = $("#connStatus", node);
+
+  function setConnStatus(state, msg) {
+    if (!connStatusEl) return;
+    let text = "";
+    let cls = "idle";
+    if (state === "connected") {
+      text = msg || "Đã kết nối realtime";
+      cls = "ok";
+    } else if (state === "reconnecting") {
+      text = msg || "Mất kết nối. Đang thử kết nối lại...";
+      cls = "warn";
+    } else if (state === "disconnected") {
+      text = msg || "Không thể kết nối tới server realtime.";
+      cls = "err";
+    } else {
+      text = msg || "";
+    }
+    connStatusEl.textContent = text;
+    connStatusEl.dataset.state = state || "";
+    connStatusEl.className = `conn-status ${cls}`;
+  }
+
+  setConnStatus("connecting", "Đang kết nối realtime...");
 
   function setOnlineUsers(arr) {
     onlineSet = new Set((arr || []).map(String));
   }
+
+  socket.on("connect", () => {
+    setConnStatus("connected");
+    socket.emit("presence:list", null, () => {});
+    if (selectedRoom) {
+      socket.emit("room:join", selectedRoom.id);
+    }
+  });
+
+  socket.on("disconnect", (reason) => {
+    if (reason === "io server disconnect") {
+      setConnStatus("disconnected");
+    } else {
+      setConnStatus("reconnecting");
+    }
+  });
+
+  socket.io.on("reconnect_attempt", () => {
+    setConnStatus("reconnecting");
+  });
+
+  socket.io.on("reconnect", () => {
+    setConnStatus("connected");
+    socket.emit("presence:list", null, () => {});
+    if (selectedRoom) {
+      socket.emit("room:join", selectedRoom.id);
+    }
+  });
+
+  socket.io.on("error", () => {
+    setConnStatus("disconnected");
+  });
 
   socket.emit("presence:list", null, () => {});
 
@@ -895,6 +1009,16 @@ function renderChat() {
       else onlineSet.delete(u);
     }
     renderList();
+  });
+
+  socket.on("typing:update", (p) => {
+    const rid = Number(p?.roomId);
+    const arr = Array.isArray(p?.users) ? p.users.map(String) : [];
+    if (!rid) return;
+    roomTyping.set(rid, new Set(arr));
+    if (selectedRoom && Number(selectedRoom.id) === rid) {
+      renderTyping();
+    }
   });
 
   socket.on("message:new", (msg) => {
@@ -937,6 +1061,29 @@ function renderChat() {
     const data = await api(`/api/messages?roomId=${encodeURIComponent(roomId)}`);
     const arr = data.ok ? (data.messages || []) : [];
     messages = arr.map(normalizeMessage);
+  }
+
+  const typingEl = $("#typingIndicator", node);
+
+  function renderTyping() {
+    if (!typingEl) return;
+    if (!selectedRoom) {
+      typingEl.textContent = "";
+      return;
+    }
+    const rid = Number(selectedRoom.id);
+    const set = roomTyping.get(rid) || new Set();
+    const me = (getUsername() || "").trim();
+    const names = Array.from(set).filter(u => u && u !== me);
+    if (!names.length) {
+      typingEl.textContent = "";
+      return;
+    }
+    let label = "";
+    if (names.length === 1) label = `${names[0]} đang nhập...`;
+    else if (names.length === 2) label = `${names[0]} và ${names[1]} đang nhập...`;
+    else label = `${names[0]} và ${names.length - 1} người khác đang nhập...`;
+    typingEl.textContent = label;
   }
 
   function renderList() {
@@ -1000,6 +1147,7 @@ function renderChat() {
     await loadMessages(selectedRoom.id);
     renderMessages();
     scrollBottom();
+    renderTyping();
   }
 
   function renderMessages() {
@@ -1050,6 +1198,8 @@ function renderChat() {
 
       area.appendChild(bubble);
     }
+
+    renderTyping();
   }
 
   function openCallModal() { $("#callModal", node).classList.add("show"); }
