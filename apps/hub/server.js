@@ -351,8 +351,10 @@ function setUserOnline(username) {
   if (!u) return;
   const prev = onlineCount.get(u) || 0;
   onlineCount.set(u, prev + 1);
-  if (prev === 0) io.emit('presence:update', { user: u, online: true });
-  io.emit('presence:full', { users: Array.from(onlineCount.keys()) });
+  // chỉ broadcast khi trạng thái online/offline thực sự thay đổi
+  if (prev === 0) {
+    io.emit('presence:update', { user: u, online: true });
+  }
 }
 
 function setUserOffline(username) {
@@ -366,7 +368,6 @@ function setUserOffline(username) {
   } else {
     onlineCount.set(u, next);
   }
-  io.emit('presence:full', { users: Array.from(onlineCount.keys()) });
 }
 
 io.use((socket, next) => {
@@ -379,6 +380,62 @@ io.use((socket, next) => {
 
 function emitPresenceList(socket) {
   socket.emit('presence:list:result', { users: Array.from(onlineCount.keys()) });
+}
+
+// typing state: roomId -> Set(username)
+const typingByRoom = new Map();
+
+function getTypingSet(roomId) {
+  const rid = Number(roomId);
+  if (!rid) return null;
+  let set = typingByRoom.get(rid);
+  if (!set) {
+    set = new Set();
+    typingByRoom.set(rid, set);
+  }
+  return set;
+}
+
+function broadcastTyping(roomId, set) {
+  const rid = Number(roomId);
+  if (!rid) return;
+  const users = Array.from(set || []);
+  io.to(`room:${rid}`).emit('typing:update', { roomId: rid, users });
+}
+
+function updateTyping(roomId, username, isTyping) {
+  const u = String(username || '').trim();
+  const set = getTypingSet(roomId);
+  if (!u || !set) return;
+
+  const beforeSize = set.size;
+  if (isTyping) {
+    set.add(u);
+  } else {
+    set.delete(u);
+  }
+
+  if (set.size === 0) {
+    typingByRoom.delete(Number(roomId));
+  }
+
+  // chỉ emit khi có thay đổi thực sự
+  if (beforeSize !== set.size) {
+    broadcastTyping(roomId, set);
+  }
+}
+
+function clearUserTyping(username) {
+  const u = String(username || '').trim();
+  if (!u) return;
+  for (const [roomId, set] of typingByRoom.entries()) {
+    if (set.delete(u)) {
+      if (set.size === 0) {
+        typingByRoom.delete(roomId);
+      }
+      broadcastTyping(roomId, set);
+    }
+  }
 }
 
 function emitMessageToRoom(roomId, msg) {
@@ -414,19 +471,50 @@ io.on('connection', (socket) => {
       const content = String(p?.content || '').trim();
       if (!roomId || !content) return cb?.({ ok: false, error: 'Invalid' });
 
+      // đơn giản rate-limit để tránh spam khi mạng chập chờn
+      const now = Date.now();
+      const windowMs = 2000; // 2s
+      const maxInWindow = 6;
+      if (!socket.data.msgWindowStart || now - socket.data.msgWindowStart > windowMs) {
+        socket.data.msgWindowStart = now;
+        socket.data.msgCountInWindow = 0;
+      }
+      socket.data.msgCountInWindow = (socket.data.msgCountInWindow || 0) + 1;
+      if (socket.data.msgCountInWindow > maxInWindow) {
+        return cb?.({ ok: false, error: 'Bạn đang gửi quá nhanh, vui lòng chậm lại.' });
+      }
+
       if (!(await ensureRoomMember(roomId, user))) return cb?.({ ok: false, error: 'Not member' });
 
       const msg = await insertMessage({ roomId, sender: user, content });
       emitMessageToRoom(roomId, msg);
-      io.emit('rooms:changed');
       cb?.({ ok: true, message: msg });
     } catch (e) {
       cb?.({ ok: false, error: e?.message || 'Send error' });
     }
   });
 
+  socket.on('typing', async (p = {}) => {
+    try {
+      const user = String(socket.data.user || '').trim();
+      if (!user) return;
+
+      const roomId = Number(p.roomId);
+      if (!roomId) return;
+
+      // chỉ cho phép typing trong phòng mình là member
+      if (!(await ensureRoomMember(roomId, user))) return;
+
+      const isTyping = !!p.typing;
+      updateTyping(roomId, user, isTyping);
+    } catch {
+      // bỏ qua lỗi nhỏ để tránh crash socket
+    }
+  });
+
   socket.on('disconnect', () => {
     if (username) setUserOffline(username);
+    if (username) clearUserTyping(username);
   });
 });
 
@@ -679,7 +767,6 @@ app.post('/api/messages', authMiddleware, async (req, res) => {
 
     const msg = await insertMessage({ roomId, sender: me, content });
     emitMessageToRoom(roomId, msg);
-    io.emit('rooms:changed');
     res.json({ ok: true, message: msg });
   } catch (e) {
     res.status(500).json({ ok: false, error: e?.message || 'Send message error' });
@@ -709,7 +796,6 @@ async function handleChatUpload(req, res) {
 
     const msg = await insertMessage({ roomId, sender: me, content: '', attachmentId });
     emitMessageToRoom(roomId, msg);
-    io.emit('rooms:changed');
 
     res.json({ ok: true, attachmentId, messageId: msg.id });
   } catch (e) {
@@ -831,7 +917,6 @@ app.post('/api/ai', authMiddleware, async (req, res) => {
     if (roomId) {
       const msg = await insertMessage({ roomId, sender: 'Gemini', content: out.answer });
       emitMessageToRoom(roomId, msg);
-      io.emit('rooms:changed');
     }
 
     res.json({ ok: true, answer: out.answer, isFallback: !!out.isFallback });
