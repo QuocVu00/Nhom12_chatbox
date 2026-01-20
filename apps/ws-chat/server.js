@@ -134,7 +134,7 @@ wss.on("connection", (ws, req) => {
     leaveRoom(ws);
   });
 });
-
+// Khởi động server WebSocket và lắng nghe kết nối client
 server.listen(PORT, () => {
   console.log(`✅ WS Chat running: http://localhost:${PORT}`);
   console.log(`🔌 WS endpoint: ws://localhost:${PORT}`);
