@@ -3,11 +3,18 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Chat Online</title>
+  <title>Chat Online - Nhóm 12</title>
   <link rel="stylesheet" href="/app.css" />
 </head>
 <body>
-  <div id="app"></div>
+  <div id="app">
+    <header><h1>Nhom 12 Chatbox</h1></header>
+    <div id="chat-container"></div>
+    <div id="input-area">
+      <input type="text" id="user-input" placeholder="Nhập tin nhắn..." />
+      <button id="send-btn">Gửi</button>
+    </div>
+  </div>
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="/app.js"></script>
