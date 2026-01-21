@@ -91,30 +91,6 @@ export async function geminiGenerate({
   throw lastErr || new Error("All Gemini models failed");
 }
 
-const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
-export async function geminiGenerateWithRetry(options) {
-  const { maxRetries = 3, initialDelay = 2000, ...rest } = options;
-  let lastError = null;
-
-  for (let attempt = 0; attempt < maxRetries; attempt++) {
-    try {
-      return await geminiGenerate(rest);
-    } catch (err) {
-      lastError = err;
-      const shouldRetry = err.status === 429 || err.status === 503 || !err.status;
-      if (shouldRetry && attempt < maxRetries - 1) {
-        const waitTime = initialDelay * Math.pow(2, attempt);
-        console.warn(`[Gemini] Thử lại lần ${attempt + 1}/${maxRetries} sau ${waitTime}ms...`);
-        await delay(waitTime);
-        continue;
-      }
-      throw err;
-    }
-  }
-  throw lastError;
-}
-
 export const geminiCleanText = (text) => {
   if (!text) return "";
   return text.replace(/```json/g, "").replace(/```/g, "").trim();
