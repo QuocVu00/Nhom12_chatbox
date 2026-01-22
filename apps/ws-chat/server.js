@@ -71,9 +71,6 @@ wss.on("connection", (ws, req) => {
     }
 
     // Protocol:
-    // {type:"set_name", username:"..."}
-    // {type:"join", room:"lop12"}
-    // {type:"chat", content:"hello"}
     if (data.type === "set_name") {
       const name = String(data.username || "").trim();
       if (!name) {
