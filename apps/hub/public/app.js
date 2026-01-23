@@ -15,7 +15,7 @@ function escapeHtml(str) {
 }
 
 // =========================
-// ✅ FIX: mojibake (UTF-8 bị đọc nhầm) để tên file tiếng Việt không bị lỗi
+//  FIX: mojibake để tên file tiếng Việt không bị lỗi
 // =========================
 function fixMojibakeText(s) {
   const str = String(s ?? "");
@@ -34,7 +34,7 @@ function fixMojibakeText(s) {
 }
 
 // =========================
-// ✅ FIX: download link phải kèm token (vì <a> không gửi Authorization header)
+//  FIX: download link phải kèm token (vì <a> không gửi Authorization header)
 // =========================
 function fileDownloadUrl(id) {
   const t = getToken();
@@ -177,7 +177,7 @@ function renderLogin() {
     });
 
     if (!data.ok) {
-      // ✅ backend trả needVerify nếu email chưa xác thực
+      //  backend trả needVerify nếu email chưa xác thực
       if (data.needVerify) {
         $("#err", node).textContent = data.error || "Bạn chưa xác thực email.";
         const u = (username || data.username || "").trim();
@@ -361,7 +361,7 @@ function renderVerifyEmail() {
       return;
     }
 
-    $("#err", node).textContent = "✅ Xác thực thành công! Bạn có thể đăng nhập.";
+    $("#err", node).textContent = " Xác thực thành công! Bạn có thể đăng nhập.";
     setTimeout(() => routeTo("/login"), 700);
   };
 
@@ -379,11 +379,11 @@ function renderVerifyEmail() {
       return;
     }
 
-    $("#err", node).textContent = "✅ Đã gửi lại mã. Mở Mailhog: http://localhost:8025";
+    $("#err", node).textContent = " Đã gửi lại mã. Mở Mailhog: http://localhost:8025";
   };
 }
 // =========================
-// ✅ AI PAGE (NEW) - Chat AI riêng
+//  AI PAGE (NEW) - Chat AI riêng
 // =========================
 const AI_STORE_KEY = "ai_history_v1";
 
@@ -594,13 +594,13 @@ let users = [];
 let messages = [];
 let pendingFile = null;
 
-// ✅ Presence set (online/offline)
+//  Presence set (online/offline)
 let onlineSet = new Set();
 
 // typing state cho từng phòng: roomId -> Set(username)
 let roomTyping = new Map();
 
-// ✅ FIX: dedupe message để chống double khi vừa POST vừa socket emit
+//  FIX: dedupe message để chống double khi vừa POST vừa socket emit
 function addMessageOnce(msg) {
   const m = normalizeMessage(msg);
   const id = Number(m?.id);
@@ -610,7 +610,7 @@ function addMessageOnce(msg) {
 }
 
 // =========================
-// ✅ AI helpers - gõ /ai <câu hỏi> trong ô chat
+//  AI helpers - gõ /ai <câu hỏi> trong ô chat
 // =========================
 function isAiCommand(text) {
   return /^\/ai\b/i.test(String(text || "").trim());
@@ -1170,7 +1170,7 @@ function renderChat() {
       if (msg.attachment_id || msg.attachmentId) {
         const id = msg.attachment_id || msg.attachmentId;
 
-        // ✅ FIX: tên file tiếng Việt + download url kèm token
+        //  FIX: tên file tiếng Việt + download url kèm token
         const name = fixMojibakeText(msg.attachmentName || `file-${id}`);
         const url = fileDownloadUrl(id);
 

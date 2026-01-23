@@ -31,7 +31,7 @@ function auth(req, res, next) {
 // ====== Routes ======
 app.get("/health", (req, res) => res.json({ ok: true }));
 
-// login giả lập (để demo JWT nhanh)
+// login giả lập (để demo )
 // POST /auth/login { "username": "tung" }
 app.post("/auth/login", (req, res) => {
   const username = String(req.body?.username || "").trim();

@@ -10,7 +10,6 @@
   --primary2: #6ea1ff;
   --on-primary: #0b1220;
 
-  /* ✅ danger (logout) */
   --danger: #ef4444;
   --danger2: #dc2626;
   --on-danger: #ffffff;
@@ -28,7 +27,6 @@ body[data-theme="dark"]{
   --primary2:#6ea1ff;
   --on-primary: #ffffff;
 
-  /* ✅ danger (logout) */
   --danger: #fb7185;
   --danger2: #e11d48;
   --on-danger: #ffffff;
@@ -94,7 +92,6 @@ body[data-theme="dark"] .btn{ background: rgba(0,0,0,0.22); }
   background: transparent;
 }
 
-/* ===== AUTH ===== */
 .auth-wrap{
   min-height:100vh;
   display:flex;
@@ -107,7 +104,6 @@ body[data-theme="dark"] .btn{ background: rgba(0,0,0,0.22); }
   padding: 26px;
 }
 
-/* ✅ FIX: HTML dùng ".auth card" nên cần style .auth */
 .auth{ padding: 26px; width: 520px; max-width: 92vw; }
 .form-row{
   display:flex;
@@ -140,7 +136,6 @@ body[data-theme="dark"] .btn{ background: rgba(0,0,0,0.22); }
   font-weight:800;
 }
 
-/* ===== CHAT LAYOUT ===== */
 .chat-app{
   height:100vh;
   display:flex;
@@ -394,7 +389,6 @@ body[data-theme="dark"] .call-btn{ background: rgba(0,0,0,0.22); }
 }
 body[data-theme="dark"] .composer{ background: rgba(0,0,0,0.18); }
 
-/* ✅ FIX: icon không click được do bị lớp khác đè */
 .composer{ position:relative; z-index: 20; }
 .composer .round-btn, .composer .btn{ position:relative; z-index: 21; pointer-events:auto; }
 
@@ -416,7 +410,6 @@ body[data-theme="dark"] .round-btn{ background: rgba(0,0,0,0.22); }
   font-size: 14px;
 }
 
-/* ===== MESSAGE BUBBLE ===== */
 .row{
   display:flex;
   margin: 10px 0;
@@ -436,7 +429,6 @@ body[data-theme="dark"] .round-btn{ background: rgba(0,0,0,0.22); }
   background: rgba(157,187,255,.22);
 }
 
-/* ===== MODAL ===== */
 .modal-backdrop{
   position:fixed;
   inset:0;
@@ -471,7 +463,6 @@ body[data-theme="dark"] .round-btn{ background: rgba(0,0,0,0.22); }
   margin-top: 6px;
 }
 
-/* ===== GROUP PICKER ===== */
 .pick-wrap{
   display:grid;
   grid-template-columns: 1.4fr 1fr;
@@ -554,7 +545,6 @@ body[data-theme="dark"] .pick-right{ background: rgba(0,0,0,0.18); }
   color: var(--muted);
 }
 
-/* ===== FILE PREVIEW (đồng bộ với app.js) ===== */
 .file-card{
   width: 360px;
   max-width: 100%;
